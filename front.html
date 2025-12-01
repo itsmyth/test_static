@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVR Assembly Assessment: Loops & Logic</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Chosen Palette: Warm Neutrals & Sage -->
+    <!-- 
+         Background: #F9F8F6 (Warm White/Beige)
+         Surface: #FFFFFF (White)
+         Text: #4A4A4A (Dark Gray)
+         Primary Accent: #8A9A5B (Sage Green) - Used for 'Correct/Active'
+         Secondary Accent: #C4A484 (Light Brown) - Used for 'Registers/Data'
+         Highlight: #E5E7EB (Light Gray) - UI Elements
+    -->
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #F9F8F6; color: #4A4A4A; }
+        .chart-container { 
+            position: relative; 
+            width: 100%; 
+            max-width: 500px; 
+            margin-left: auto; 
+            margin-right: auto; 
+            height: 300px; 
+            max-height: 350px; 
+        }
+        .register-box {
+            font-family: 'Courier New', Courier, monospace;
+            border: 2px solid #C4A484;
+            background-color: #FFF;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .bit-box {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #d1d5db;
+            margin: 2px;
+            font-weight: bold;
+            font-family: monospace;
+            transition: all 0.3s ease;
+        }
+        .active-bit {
+            background-color: #8A9A5B;
+            color: white;
+            transform: scale(1.1);
+        }
+        .processed-bit {
+            background-color: #E5E7EB;
+            color: #9CA3AF;
+        }
+        .nav-btn.active {
+            background-color: #8A9A5B;
+            color: white;
+        }
+        input[type=range] {
+            accent-color: #8A9A5B;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Application Structure Plan:
+         1. Header: Title and Global Context.
+         2. Dashboard: High-level view of the assessment structure (20 marks split).
+         3. Interactive Learning Modules (Tabs):
+            - Problem 1: Summation Logic. Includes a "Loop Simulator" to visualize the algorithmic flow.
+            - Problem 2: Population Count. Includes a "Bitwise Simulator" to visualize shifting and counting.
+         4. Rubric Calculator: Integrated into each problem section to allow users to "grade" themselves or understand criteria weight.
+         5. Footer: Summary.
+         Rationale: This structure breaks complex assembly concepts into visual steps while keeping the assessment criteria (the rubric) continuously visible and interactive.
+    -->
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm py-6 px-4 mb-8 border-b-4 border-[#8A9A5B]">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">AVR Assembly Assessment</h1>
+                <p class="text-gray-600 mt-1">Solving Basic Problems Using Loops</p>
+            </div>
+            <div class="mt-4 md:mt-0 text-right">
+                <div class="text-sm font-semibold text-[#8A9A5B]">Total Marks Available</div>
+                <div class="text-4xl font-bold">20</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto px-4 max-w-6xl">
+        
+        <!-- Intro Context -->
+        <section class="mb-10 bg-white p-6 rounded-lg shadow-sm">
+            <h2 class="text-xl font-bold mb-3 border-l-4 border-[#C4A484] pl-3">Assignment Overview</h2>
+            <p class="text-gray-600 leading-relaxed">
+                This interactive guide breaks down the AVR Assembly assessment. The assignment consists of two core problems focusing on <strong>loop structures</strong>, <strong>conditional branching</strong>, and <strong>bitwise manipulation</strong>. Explore the logic behind each problem below and use the integrated rubric to understand how marks are awarded.
+            </p>
+        </section>
+
+        <!-- Navigation Tabs -->
+        <div class="flex justify-center mb-8 space-x-4">
+            <button onclick="switchTab('p1')" id="btn-p1" class="nav-btn active px-6 py-3 rounded-full font-semibold shadow-sm transition-colors duration-200 border border-gray-200 bg-white hover:bg-gray-50">
+                Problem 1: Summation
+            </button>
+            <button onclick="switchTab('p2')" id="btn-p2" class="nav-btn px-6 py-3 rounded-full font-semibold shadow-sm transition-colors duration-200 border border-gray-200 bg-white hover:bg-gray-50">
+                Problem 2: Bit Counting
+            </button>
+            <button onclick="switchTab('summary')" id="btn-summary" class="nav-btn px-6 py-3 rounded-full font-semibold shadow-sm transition-colors duration-200 border border-gray-200 bg-white hover:bg-gray-50">
+                Rubric Analysis
+            </button>
+        </div>
+
+        <!-- Problem 1 Section -->
+        <div id="p1-section" class="space-y-8">
+            <!-- Context -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 class="text-lg font-bold mb-4 text-[#8A9A5B]">Task Description</h3>
+                    <p class="mb-4 text-sm text-gray-600">
+                        Write an AVR assembly program to calculate the sum of all <strong>even numbers</strong> within the inclusive range of <strong>10 to 20</strong>.
+                    </p>
+                    <ul class="list-disc pl-5 text-sm text-gray-600 space-y-2 mb-6">
+                        <li><strong>Range:</strong> 10, 11, ..., 20</li>
+                        <li><strong>Target Numbers:</strong> 10, 12, 14, 16, 18, 20</li>
+                        <li><strong>Registers:</strong> Accumulator (e.g., R16)</li>
+                    </ul>
+                    
+                    <h3 class="text-lg font-bold mb-4 text-[#C4A484]">Logic Simulator</h3>
+                    <p class="text-xs text-gray-500 mb-4">Click "Step Loop" to visualize how the assembly logic processes the range.</p>
+                    
+                    <!-- P1 Simulator UI -->
+                    <div class="border rounded-lg p-4 bg-gray-50 flex flex-col items-center">
+                        <div class="flex space-x-4 mb-4">
+                            <div class="register-box p-3 w-24">
+                                <div class="text-xs text-gray-400">Counter</div>
+                                <div id="p1-counter" class="text-xl font-bold text-gray-800">10</div>
+                            </div>
+                            <div class="register-box p-3 w-24">
+                                <div class="text-xs text-gray-400">Sum (R16)</div>
+                                <div id="p1-sum" class="text-xl font-bold text-[#8A9A5B]">0</div>
+                            </div>
+                        </div>
+                        <div id="p1-status" class="h-8 mb-4 font-mono text-sm font-bold text-blue-600">Ready to start</div>
+                        
+                        <div class="flex space-x-2 w-full justify-center">
+                            <button onclick="p1Step()" class="bg-[#8A9A5B] hover:bg-[#7a8a4b] text-white px-4 py-2 rounded shadow-sm text-sm font-semibold">Step Loop</button>
+                            <button onclick="p1Reset()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded shadow-sm text-sm font-semibold">Reset</button>
+                        </div>
+                        
+                        <!-- Visualization of Range -->
+                        <div class="mt-4 flex space-x-1 overflow-x-auto w-full justify-center p-2">
+                            <!-- Generated by JS -->
+                            <div id="p1-range-viz" class="flex space-x-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- P1 Rubric -->
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-gray-800">Grading Rubric (10 Marks)</h3>
+                        <div class="text-2xl font-bold text-[#8A9A5B]"><span id="p1-score">0</span>/10</div>
+                    </div>
+                    
+                    <!-- Rubric Items -->
+                    <div class="space-y-5" id="p1-rubric-container">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Problem 2 Section -->
+        <div id="p2-section" class="hidden space-y-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 class="text-lg font-bold mb-4 text-[#8A9A5B]">Task Description</h3>
+                    <p class="mb-4 text-sm text-gray-600">
+                        Write a program to count the number of <strong>'1' bits (set bits)</strong> in the 8-bit value <code>0b10110101</code>. Store the result in R17.
+                    </p>
+                    <ul class="list-disc pl-5 text-sm text-gray-600 space-y-2 mb-6">
+                        <li><strong>Input:</strong> 010110101 (Binary)</li>
+                        <li><strong>Technique:</strong> Bit shifting & Carry Flag check</li>
+                        <li><strong>Expected Result:</strong> 5</li>
+                    </ul>
+                    
+                    <h3 class="text-lg font-bold mb-4 text-[#C4A484]">Bitwise Simulator</h3>
+                    <p class="text-xs text-gray-500 mb-4">Click "Shift & Check" to simulate the ROL/LSL instruction and conditional branch.</p>
+                    
+                    <!-- P2 Simulator UI -->
+                    <div class="border rounded-lg p-4 bg-gray-50 flex flex-col items-center">
+                        <div class="flex justify-between w-full mb-2 px-8">
+                            <span class="text-xs font-mono text-gray-400">Carry Flag</span>
+                            <span class="text-xs font-mono text-gray-400">Register R16</span>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4 mb-6">
+                            <!-- Carry Box -->
+                            <div id="p2-carry" class="register-box w-12 h-12 flex items-center justify-center text-xl font-bold border-red-300 bg-red-50">0</div>
+                            
+                            <!-- Arrow -->
+                            <div class="text-gray-400">←</div>
+                            
+                            <!-- Bits Container -->
+                            <div id="p2-bits" class="flex">
+                                <!-- Bits generated by JS -->
+                            </div>
+                        </div>
+
+                        <div class="flex space-x-4 mb-4">
+                            <div class="register-box p-2 w-32">
+                                <div class="text-xs text-gray-400">Loop Counter</div>
+                                <div id="p2-loop" class="text-lg font-bold">8</div>
+                            </div>
+                            <div class="register-box p-2 w-32">
+                                <div class="text-xs text-gray-400">Set Bits (R17)</div>
+                                <div id="p2-count" class="text-lg font-bold text-[#8A9A5B]">0</div>
+                            </div>
+                        </div>
+                        
+                        <div id="p2-status" class="h-8 mb-2 font-mono text-sm font-bold text-blue-600">Ready</div>
+
+                        <div class="flex space-x-2">
+                            <button onclick="p2Step()" class="bg-[#8A9A5B] hover:bg-[#7a8a4b] text-white px-4 py-2 rounded shadow-sm text-sm font-semibold">Shift & Check</button>
+                            <button onclick="p2Reset()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded shadow-sm text-sm font-semibold">Reset</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- P2 Rubric -->
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-gray-800">Grading Rubric (10 Marks)</h3>
+                        <div class="text-2xl font-bold text-[#8A9A5B]"><span id="p2-score">0</span>/10</div>
+                    </div>
+                    
+                    <!-- Rubric Items -->
+                    <div class="space-y-5" id="p2-rubric-container">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div id="summary-section" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Breakdown Chart -->
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 class="text-lg font-bold mb-4 text-gray-800">Rubric Composition</h3>
+                    <p class="text-sm text-gray-600 mb-4">Visualizing where the marks are concentrated in this assignment.</p>
+                    
+                    <!-- Visualization & Content Choices: 
+                         Goal: Organize. 
+                         Method: Doughnut Chart.
+                         Justification: Shows the proportional weight of Logic vs Syntax vs Documentation.
+                    -->
+                    <div class="chart-container">
+                        <canvas id="rubricChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Tips & Tricks -->
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 class="text-lg font-bold mb-4 text-gray-800">Success Strategy</h3>
+                    <div class="space-y-4">
+                        <div class="border-l-4 border-[#8A9A5B] pl-4">
+                            <h4 class="font-bold text-gray-700">Focus on Logic (60%)</h4>
+                            <p class="text-sm text-gray-600">The majority of marks come from correct conditional branching (e.g., Even/Odd check, Carry check) and loop control.</p>
+                        </div>
+                        <div class="border-l-4 border-[#C4A484] pl-4">
+                            <h4 class="font-bold text-gray-700">Initialization Matters (20%)</h4>
+                            <p class="text-sm text-gray-600">Don't forget to set up your counters and accumulators before entering the loop. R16 = 0, R17 = 0.</p>
+                        </div>
+                        <div class="border-l-4 border-gray-300 pl-4">
+                            <h4 class="font-bold text-gray-700">Documentation (10%)</h4>
+                            <p class="text-sm text-gray-600">Marks are easy to lose here. Ensure you have a flowchart and comments explaining <em>why</em> you are using specific instructions.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="bg-white border-t mt-12 py-8">
+        <div class="container mx-auto text-center text-gray-500 text-sm">
+            <p>AVR Assessment Helper | Generated for Educational Analysis</p>
+        </div>
+    </footer>
+
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script>
+        // --- DATA STORAGE ---
+        // Storing base data for rubrics and logic
+        const rubricP1 = [
+            { id: 'p1_init', label: 'Initialization (Registers)', max: 2, desc: 'Setting up counter/accumulator properly.' },
+            { id: 'p1_loop', label: 'Looping Structure', max: 2, desc: 'Using BRNE or similar loop control.' },
+            { id: 'p1_logic', label: 'Even/Odd Logic', max: 3, desc: 'Correct check (e.g., ANDI) for even numbers.' },
+            { id: 'p1_sum', label: 'Summation & Storage', max: 2, desc: 'Accurate addition to R16.' },
+            { id: 'p1_doc', label: 'Flowchart & Comments', max: 1, desc: 'Quality of documentation.' }
+        ];
+
+        const rubricP2 = [
+            { id: 'p2_init', label: 'Initialization', max: 2, desc: 'Value and counter setup.' },
+            { id: 'p2_tech', label: 'Bit Manipulation', max: 3, desc: 'Shifting or testing technique.' },
+            { id: 'p2_count', label: 'Counting Logic', max: 3, desc: 'Conditional increment based on bit.' },
+            { id: 'p2_loop', label: 'Loop Termination', max: 2, desc: 'Iterating exactly 8 times.' },
+            { id: 'p2_doc', label: 'Flowchart & Comments', max: 1, desc: 'Quality of documentation.' }
+        ];
+
+        let scoresP1 = { p1_init: 0, p1_loop: 0, p1_logic: 0, p1_sum: 0, p1_doc: 0 };
+        let scoresP2 = { p2_init: 0, p2_tech: 0, p2_count: 0, p2_loop: 0, p2_doc: 0 };
+
+        // --- SIMULATOR STATE ---
+        // P1
+        let p1Current = 10;
+        let p1Sum = 0;
+        let p1Finished = false;
+
+        // P2
+        let p2Bits = [1,0,1,1,0,1,0,1]; // 0xB5 binary array
+        let p2LoopCounter = 8;
+        let p2SetCount = 0;
+        let p2Finished = false;
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderRubric('p1-rubric-container', rubricP1, 'p1');
+            renderRubric('p2-rubric-container', rubricP2, 'p2');
+            initP1Viz();
+            initP2Viz();
+            initChart();
+        });
+
+        // --- UI LOGIC: TABS ---
+        function switchTab(tabId) {
+            // Hide all
+            document.getElementById('p1-section').classList.add('hidden');
+            document.getElementById('p2-section').classList.add('hidden');
+            document.getElementById('summary-section').classList.add('hidden');
+            
+            document.getElementById('btn-p1').classList.remove('active');
+            document.getElementById('btn-p2').classList.remove('active');
+            document.getElementById('btn-summary').classList.remove('active');
+
+            // Show selected
+            if(tabId === 'p1') {
+                document.getElementById('p1-section').classList.remove('hidden');
+                document.getElementById('btn-p1').classList.add('active');
+            } else if (tabId === 'p2') {
+                document.getElementById('p2-section').classList.remove('hidden');
+                document.getElementById('btn-p2').classList.add('active');
+            } else {
+                document.getElementById('summary-section').classList.remove('hidden');
+                document.getElementById('btn-summary').classList.add('active');
+            }
+        }
+
+        // --- LOGIC: RUBRIC RENDERING ---
+        function renderRubric(containerId, data, prefix) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            data.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'border-b border-gray-100 pb-2';
+                div.innerHTML = `
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm font-semibold text-gray-700">${item.label}</label>
+                        <span class="text-sm font-bold text-[#C4A484]"><span id="${item.id}-val">0</span> / ${item.max}</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">${item.desc}</p>
+                    <input type="range" min="0" max="${item.max}" value="0" step="0.5" 
+                           class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                           oninput="updateScore('${prefix}', '${item.id}', this.value)">
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateScore(prefix, id, value) {
+            document.getElementById(`${id}-val`).innerText = value;
+            if(prefix === 'p1') scoresP1[id] = parseFloat(value);
+            else scoresP2[id] = parseFloat(value);
+            
+            calculateTotals();
+        }
+
+        function calculateTotals() {
+            const sumP1 = Object.values(scoresP1).reduce((a, b) => a + b, 0);
+            const sumP2 = Object.values(scoresP2).reduce((a, b) => a + b, 0);
+            
+            document.getElementById('p1-score').innerText = sumP1;
+            document.getElementById('p2-score').innerText = sumP2;
+        }
+
+        // --- SIMULATOR P1 (Summation) ---
+        function initP1Viz() {
+            const container = document.getElementById('p1-range-viz');
+            container.innerHTML = '';
+            for(let i=10; i<=20; i++) {
+                const el = document.createElement('div');
+                el.className = `bit-box rounded bg-white text-xs ${i===10 ? 'border-[#8A9A5B] border-2' : ''}`;
+                el.innerText = i;
+                el.id = `p1-num-${i}`;
+                container.appendChild(el);
+            }
+        }
+
+        function p1Step() {
+            if(p1Finished) return;
+
+            const isEven = p1Current % 2 === 0;
+            const statusEl = document.getElementById('p1-status');
+            const numEl = document.getElementById(`p1-num-${p1Current}`);
+
+            // Visual update
+            document.querySelectorAll('#p1-range-viz .bit-box').forEach(b => b.classList.remove('active-bit', 'border-[#8A9A5B]', 'border-2'));
+            numEl.classList.add('processed-bit');
+            
+            // Logic
+            if(isEven) {
+                p1Sum += p1Current;
+                statusEl.innerText = `${p1Current} is EVEN. Added to Sum.`;
+                statusEl.className = "h-8 mb-4 font-mono text-sm font-bold text-[#8A9A5B]";
+                numEl.style.backgroundColor = "#dcfce7"; // light green
+            } else {
+                statusEl.innerText = `${p1Current} is ODD. Skipped.`;
+                statusEl.className = "h-8 mb-4 font-mono text-sm font-bold text-gray-400";
+            }
+
+            document.getElementById('p1-sum').innerText = p1Sum;
+            
+            // Advance
+            p1Current++;
+            document.getElementById('p1-counter').innerText = p1Current > 20 ? 20 : p1Current;
+
+            if(p1Current <= 20) {
+                const nextEl = document.getElementById(`p1-num-${p1Current}`);
+                nextEl.classList.add('border-[#8A9A5B]', 'border-2');
+            } else {
+                p1Finished = true;
+                statusEl.innerText = "Loop Finished. Final Sum: " + p1Sum;
+                statusEl.className = "h-8 mb-4 font-mono text-sm font-bold text-blue-800";
+            }
+        }
+
+        function p1Reset() {
+            p1Current = 10;
+            p1Sum = 0;
+            p1Finished = false;
+            document.getElementById('p1-counter').innerText = 10;
+            document.getElementById('p1-sum').innerText = 0;
+            document.getElementById('p1-status').innerText = "Ready to start";
+            document.getElementById('p1-status').className = "h-8 mb-4 font-mono text-sm font-bold text-blue-600";
+            initP1Viz();
+        }
+
+        // --- SIMULATOR P2 (Bit Counting) ---
+        function initP2Viz() {
+            const container = document.getElementById('p2-bits');
+            container.innerHTML = '';
+            p2Bits.forEach((bit, idx) => {
+                const el = document.createElement('div');
+                el.className = 'bit-box bg-white';
+                el.innerText = bit;
+                el.id = `p2-bit-${idx}`;
+                container.appendChild(el);
+            });
+            // Reset carry
+            document.getElementById('p2-carry').innerText = '0';
+            document.getElementById('p2-carry').classList.remove('active-bit');
+        }
+
+        function p2Step() {
+            if(p2Finished) return;
+
+            const currentBit = p2Bits.shift(); // Shift left (taking from array start as visual rep)
+            const statusEl = document.getElementById('p2-status');
+
+            // Update Loop Counter
+            p2LoopCounter--;
+            document.getElementById('p2-loop').innerText = p2LoopCounter;
+
+            // Visual Update - Removing visual bit
+            const container = document.getElementById('p2-bits');
+            if(container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+
+            // Update Carry
+            const carryEl = document.getElementById('p2-carry');
+            carryEl.innerText = currentBit;
+            
+            if(currentBit === 1) {
+                carryEl.classList.add('active-bit');
+                p2SetCount++;
+                document.getElementById('p2-count').innerText = p2SetCount;
+                statusEl.innerText = "Carry Set (1). Increment R17.";
+                statusEl.className = "h-8 mb-2 font-mono text-sm font-bold text-[#8A9A5B]";
+            } else {
+                carryEl.classList.remove('active-bit');
+                statusEl.innerText = "Carry Clear (0). No Increment.";
+                statusEl.className = "h-8 mb-2 font-mono text-sm font-bold text-gray-400";
+            }
+
+            if(p2LoopCounter === 0) {
+                p2Finished = true;
+                statusEl.innerText = "Loop Finished. Total Set Bits: " + p2SetCount;
+                statusEl.className = "h-8 mb-2 font-mono text-sm font-bold text-blue-800";
+            }
+        }
+
+        function p2Reset() {
+            p2Bits = [1,0,1,1,0,1,0,1];
+            p2LoopCounter = 8;
+            p2SetCount = 0;
+            p2Finished = false;
+            document.getElementById('p2-loop').innerText = 8;
+            document.getElementById('p2-count').innerText = 0;
+            document.getElementById('p2-status').innerText = "Ready";
+            initP2Viz();
+        }
+
+        // --- CHART ---
+        function initChart() {
+            const ctx = document.getElementById('rubricChart').getContext('2d');
+            
+            // Aggregating weights
+            // Init: 4 marks (2+2)
+            // Logic/Tech: 8 marks (2 loop + 3 logic + 3 tech)
+            // Accuracy: 6 marks (2 sum + 2 count + 2 term) -- rough grouping
+            // Docs: 2 marks (1+1)
+            
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Initialization', 'Core Logic & Loops', 'Result Accuracy', 'Documentation'],
+                    datasets: [{
+                        data: [4, 8, 6, 2],
+                        backgroundColor: [
+                            '#C4A484', // Light Brown
+                            '#8A9A5B', // Sage Green
+                            '#4A4A4A', // Dark Gray
+                            '#E5E7EB'  // Light Gray
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
