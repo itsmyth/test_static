@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVR Assembly Assessment: I/O Interface</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chosen Palette: Warm Neutrals & Sage -->
+    <!-- 
+         Background: #F9F8F6 (Warm White/Beige)
+         Surface: #FFFFFF (White)
+         Text: #4A4A4A (Dark Gray)
+         Primary Accent: #8A9A5B (Sage Green) - Used for 'Active/ON'
+         Secondary Accent: #C4A484 (Light Brown) - Used for 'Registers/Data'
+         Highlight: #E5E7EB (Light Gray) - UI Elements
+    -->
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #F9F8F6; color: #4A4A4A; }
+        .nav-btn.active {
+            background-color: #8A9A5B;
+            color: white;
+        }
+        input[type=range] {
+            accent-color: #8A9A5B;
+        }
+        .led-off {
+            background-color: #E5E7EB;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+        .led-on {
+            background-color: #8A9A5B; /* Sage Green */
+            box-shadow: 0 0 20px #8A9A5B, 0 0 10px #8A9A5B;
+        }
+        .button-switch {
+            width: 80px;
+            height: 40px;
+            border-radius: 9999px;
+            transition: all 0.3s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            padding: 4px;
+        }
+        .button-handle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s;
+        }
+        .button-on {
+            background-color: #C4A484; /* Light Brown */
+        }
+        .button-on .button-handle {
+            transform: translateX(40px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm py-6 px-4 mb-8 border-b-4 border-[#C4A484]">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">AVR Assembly Assessment: I/O Interface</h1>
+                <p class="text-gray-600 mt-1">Button-Controlled LED Flasher</p>
+            </div>
+            <div class="mt-4 md:mt-0 text-right">
+                <div class="text-sm font-semibold text-[#8A9A5B]">Total Marks Available</div>
+                <div class="text-4xl font-bold">10</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto px-4 max-w-6xl">
+        
+        <!-- Intro Context -->
+        <section class="mb-10 bg-white p-6 rounded-lg shadow-sm">
+            <h2 class="text-xl font-bold mb-3 border-l-4 border-[#8A9A5B] pl-3">I/O Logic Overview</h2>
+            <p class="text-gray-600 leading-relaxed">
+                This assignment tests your ability to configure AVR ports for both input (button) and output (LED) and implement a precise conditional logic loop. The core challenge is reading the input state using instructions like <code class="font-mono bg-gray-100 p-1 rounded">SBIS</code> or <code class="font-mono bg-gray-100 p-1 rounded">BRNE</code>, and then correctly toggling the output using a subroutine delay.
+            </p>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- I/O Simulation Panel (2/3 width) -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm">
+                <h3 class="text-lg font-bold mb-4 text-[#C4A484]">Hardware Simulation (Button, LED, Clock)</h3>
+                <p class="text-sm text-gray-600 mb-6">Click the switch to simulate a button press and see the resulting LED behavior controlled by the program logic.</p>
+
+                <div class="flex flex-col items-center p-6 bg-gray-50 border border-gray-200 rounded-lg">
+                    
+                    <!-- Hardware Components -->
+                    <div class="flex items-center justify-around w-full max-w-lg mb-8">
+                        
+                        <!-- Input Button (PB0) -->
+                        <div class="flex flex-col items-center">
+                            <h4 class="text-sm font-mono mb-2 text-gray-700">PORTB.0 (Input)</h4>
+                            <div id="button-switch" onclick="toggleButton()" class="button-switch bg-gray-300">
+                                <div class="button-handle"></div>
+                            </div>
+                            <div class="text-xs mt-2 font-mono text-gray-500">
+                                State: <span id="button-state">HIGH (1)</span>
+                            </div>
+                            <div class="text-xs text-red-500 font-semibold mt-1" id="pullup-status">Pull-up Active (Default)</div>
+                        </div>
+
+                        <!-- Connection / AVR Placeholder -->
+                        <div class="flex flex-col items-center">
+                            <span class="text-4xl text-gray-400">⚡</span>
+                            <div class="text-xs text-gray-500 font-mono mt-1">AVR Microcontroller</div>
+                        </div>
+
+                        <!-- Output LED (PC5) -->
+                        <div class="flex flex-col items-center">
+                            <h4 class="text-sm font-mono mb-2 text-gray-700">PORTC.5 (Output)</h4>
+                            <div id="led-indicator" class="w-12 h-12 rounded-full led-off transition-all duration-500"></div>
+                            <div class="text-xs mt-2 font-mono text-gray-500">
+                                LED: <span id="led-state">OFF</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Simulation Control -->
+                    <div class="border-t pt-4 w-full text-center">
+                        <div id="sim-status" class="h-8 mb-4 font-mono text-sm font-bold text-blue-600">
+                            Logic: Ready
+                        </div>
+                        <div class="flex justify-center space-x-4">
+                            <button id="run-btn" onclick="toggleSimulation()" class="bg-[#8A9A5B] hover:bg-[#7a8a4b] text-white px-6 py-2 rounded shadow-md font-semibold transition-colors duration-200">
+                                Run Simulation
+                            </button>
+                            <button onclick="resetSimulation()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded shadow-md font-semibold transition-colors duration-200">
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rubric Calculator Panel (1/3 width) -->
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">Grading Rubric (10 Marks)</h3>
+                    <div class="text-2xl font-bold text-[#8A9A5B]"><span id="io-score">0</span>/10</div>
+                </div>
+                
+                <!-- Rubric Items -->
+                <div class="space-y-5" id="io-rubric-container">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="bg-white border-t mt-12 py-8">
+        <div class="container mx-auto text-center text-gray-500 text-sm">
+            <p>AVR Assessment Helper | Generated for Educational Analysis</p>
+        </div>
+    </footer>
+
+    <script>
+        // --- DATA STORAGE ---
+        const rubricIO = [
+            { id: 'io_ddr', label: 'DDR Setup (Input/Output)', max: 2, desc: 'DDRB=0 (Input), DDRC=1 (Output) configured correctly.' },
+            { id: 'io_pullup', label: 'PB0 Pull-up Resistor', max: 1, desc: 'Correct enabling of the internal pull-up for PB0 (setting PORTB.0=1).' },
+            { id: 'io_branch', label: 'Input Read & Conditional Branching', max: 3, desc: 'Correctly reads the PIN register (LOW on press) and uses SBIS/BRNE/etc. to branch.' },
+            { id: 'io_toggle', label: 'Output Toggle Logic', max: 2, desc: 'Uses CBI/SBI or XOR to cleanly toggle the LED state on PC5.' },
+            { id: 'io_delay', label: 'Delay Subroutine Calls', max: 1, desc: 'Correctly calls Delay_500ms twice within the loop for a 1Hz flash rate.' },
+            { id: 'io_doc', label: 'Flowchart & Comments', max: 1, desc: 'Quality of documentation.' }
+        ];
+
+        let scoresIO = { io_ddr: 0, io_pullup: 0, io_branch: 0, io_toggle: 0, io_delay: 0, io_doc: 0 };
+
+        // --- SIMULATOR STATE ---
+        let buttonIsPressed = false; // Corresponds to PB0 LOW (0)
+        let ledIsOn = false;        // Corresponds to PC5 HIGH (1)
+        let simulationInterval = null;
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderRubric('io-rubric-container', rubricIO, 'io');
+            updateHardwareViz();
+        });
+
+        // --- LOGIC: RUBRIC RENDERING ---
+        function renderRubric(containerId, data, prefix) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            data.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'border-b border-gray-100 pb-2';
+                div.innerHTML = `
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm font-semibold text-gray-700">${item.label}</label>
+                        <span class="text-sm font-bold text-[#C4A484]"><span id="${item.id}-val">0</span> / ${item.max}</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">${item.desc}</p>
+                    <input type="range" min="0" max="${item.max}" value="0" step="0.5" 
+                           class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                           oninput="updateScore('${prefix}', '${item.id}', this.value)">
+                `;
+                container.appendChild(div);
+            }
+        );
+        }
+
+        function updateScore(prefix, id, value) {
+            document.getElementById(`${id}-val`).innerText = value;
+            scoresIO[id] = parseFloat(value);
+            
+            calculateTotals();
+        }
+
+        function calculateTotals() {
+            const sumIO = Object.values(scoresIO).reduce((a, b) => a + b, 0);
+            document.getElementById('io-score').innerText = sumIO;
+        }
+
+        // --- SIMULATOR: HARDWARE VISUALIZATION ---
+        function updateHardwareViz() {
+            const buttonEl = document.getElementById('button-switch');
+            const buttonStateEl = document.getElementById('button-state');
+            const ledEl = document.getElementById('led-indicator');
+            const ledStateEl = document.getElementById('led-state');
+            
+            // Button Visuals
+            if (buttonIsPressed) {
+                // Button Pressed: LOW signal (0) due to pull-up
+                buttonEl.classList.add('button-on');
+                buttonEl.classList.remove('bg-gray-300');
+                buttonStateEl.innerText = 'LOW (0)';
+                buttonStateEl.classList.add('text-red-600');
+                buttonStateEl.classList.remove('text-green-600');
+            } else {
+                // Button Not Pressed: HIGH signal (1) due to pull-up
+                buttonEl.classList.remove('button-on');
+                buttonEl.classList.add('bg-gray-300');
+                buttonStateEl.innerText = 'HIGH (1)';
+                buttonStateEl.classList.add('text-green-600');
+                buttonStateEl.classList.remove('text-red-600');
+            }
+
+            // LED Visuals
+            if (ledIsOn) {
+                ledEl.classList.add('led-on');
+                ledEl.classList.remove('led-off');
+                ledStateEl.innerText = 'ON';
+            } else {
+                ledEl.classList.add('led-off');
+                ledEl.classList.remove('led-on');
+                ledStateEl.innerText = 'OFF';
+            }
+        }
+
+        // --- SIMULATOR: USER INTERACTIONS ---
+        function toggleButton() {
+            if (simulationInterval) {
+                // If running, user interaction simulates button state change during execution
+                buttonIsPressed = !buttonIsPressed;
+                document.getElementById('sim-status').innerText = `Input changed! PB0 is now ${buttonIsPressed ? 'LOW (0)' : 'HIGH (1)'}.`;
+                document.getElementById('sim-status').className = "h-8 mb-4 font-mono text-sm font-bold text-orange-600";
+            } else {
+                // If stopped, just toggle state
+                buttonIsPressed = !buttonIsPressed;
+            }
+            updateHardwareViz();
+        }
+
+        // --- SIMULATOR: PROGRAM LOGIC LOOP ---
+        function runSimulationLogic() {
+            const statusEl = document.getElementById('sim-status');
+            
+            if (buttonIsPressed) {
+                // Logic: Button Pressed (PB0 is LOW/0) -> Flash
+                if (ledIsOn) {
+                    // Turn OFF
+                    ledIsOn = false;
+                    statusEl.innerText = "Condition Met: LED OFF (Delay 500ms)";
+                    statusEl.className = "h-8 mb-4 font-mono text-sm font-bold text-[#8A9A5B]";
+                } else {
+                    // Turn ON
+                    ledIsOn = true;
+                    statusEl.innerText = "Condition Met: LED ON (Delay 500ms)";
+                    statusEl.className = "h-8 mb-4 font-mono text-sm font-bold text-[#8A9A5B]";
+                }
+            } else {
+                // Logic: Button NOT Pressed (PB0 is HIGH/1) -> Remain OFF
+                if (ledIsOn) {
+                    // Force OFF if it was left ON
+                    ledIsOn = false;
+                }
+                statusEl.innerText = "Condition Not Met: LED remains OFF.";
+                statusEl.className = "h-8 mb-4 font-mono text-sm font-bold text-gray-500";
+            }
+
+            updateHardwareViz();
+        }
+
+        function toggleSimulation() {
+            const runBtn = document.getElementById('run-btn');
+            const statusEl = document.getElementById('sim-status');
+
+            if (simulationInterval) {
+                // Stop simulation
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+                runBtn.innerText = 'Run Simulation';
+                runBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+                runBtn.classList.add('bg-[#8A9A5B]', 'hover:bg-[#7a8a4b]');
+                statusEl.innerText = "Logic Halted.";
+                statusEl.className = "h-8 mb-4 font-mono text-sm font-bold text-red-700";
+            } else {
+                // Start simulation (1 flash/sec = 1000ms period, 500ms ON / 500ms OFF)
+                // The loop runs every 500ms to simulate the two delay calls.
+                simulationInterval = setInterval(runSimulationLogic, 500); 
+                runBtn.innerText = 'Pause Simulation';
+                runBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+                runBtn.classList.remove('bg-[#8A9A5B]', 'hover:bg-[#7a8a4b]');
+                statusEl.innerText = "Logic Running (500ms interval)...";
+                statusEl.className = "h-8 mb-4 font-mono text-sm font-bold text-blue-600";
+            }
+        }
+
+        function resetSimulation() {
+            if (simulationInterval) {
+                toggleSimulation(); // Stop first
+            }
+            buttonIsPressed = false; // HIGH (1)
+            ledIsOn = false;         // OFF
+            document.getElementById('sim-status').innerText = "Logic Ready";
+            document.getElementById('sim-status').className = "h-8 mb-4 font-mono text-sm font-bold text-blue-600";
+            updateHardwareViz();
+        }
+    </script>
+</body>
+</html>
